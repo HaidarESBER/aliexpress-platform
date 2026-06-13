@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Favorites — Nuage sourcing</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --txt:#e7e9ee; --muted:#9aa3b2; --accent:#e8a13a; --ok:#3ecf8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:18px; margin:0; } .grow{flex:1;}
+  .btn { background:var(--accent); color:#1a1206; border:0; border-radius:8px; padding:9px 15px; font-weight:600; cursor:pointer; text-decoration:none; font-size:14px; }
+  .btn.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  main { max-width:1000px; margin:0 auto; padding:24px; }
+  .fav { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; display:grid; grid-template-columns:120px 1fr; gap:16px; }
+  .fav img.thumb { width:120px; height:120px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+  .badge { font-size:11px; padding:2px 9px; border-radius:999px; font-weight:600; }
+  .b-raw{background:#3a2f1d;color:#e8c98a;} .b-adapted{background:#1d2f3a;color:#8ac6e8;}
+  .b-reskinned{background:#2f1d3a;color:#c68ae8;} .b-ready{background:#10231a;color:var(--ok);}
+  .orig { color:var(--muted); font-size:13px; }
+  .orig .price { color:var(--accent); font-weight:700; }
+  .adapt { margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; }
+  .lang { display:inline-block; font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; margin-right:6px; }
+  .at { font-weight:600; } .desc { color:#cdd3df; font-size:14px; margin:4px 0 10px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--muted); }
+  .pill { background:#10231a; border:1px solid #1f4533; color:var(--ok); border-radius:8px; padding:4px 10px; font-weight:600; }
+  .imgs { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .imgs img { width:70px; height:70px; object-fit:cover; border-radius:6px; border:1px solid var(--line); }
+  .imgs .reskinned img { border-color:var(--ok); }
+  .x { background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px; }
+  .empty { color:var(--muted); text-align:center; padding:60px 0; }
+  a.titlelink { color:var(--txt); text-decoration:none; } a.titlelink:hover{ color:var(--accent); }
+  .hint { color:var(--muted); font-size:13px; margin-top:18px; }
+  code { background:#0b0d11; border:1px solid var(--line); border-radius:4px; padding:1px 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>★ Favorites — sourcing shortlist</h1>
+  <span class="grow"></span>
+  <a class="btn ghost" href="/">← Back to search</a>
+</header>
+<main>
+  <div id="list"><div class="empty">Loading…</div></div>
+  <p class="hint">Workflow: ♥ products on the search page → here you review them → tell Claude <code>"adapt my favorites"</code> (Nuage FR/EN copy) → run the image reskin → export to the store. Status moves <b>raw → adapted → reskinned → ready</b>.</p>
+</main>
+<script>
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = p => p==null?"?":Number(p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function adaptedBlock(a){
+  if(!a) return `<div class="adapt orig">Not yet adapted — tell Claude <code>"adapt my favorites"</code>.</div>`;
+  const fr=a.fr||{}, en=a.en||{};
+  return `<div class="adapt">
+    ${a.category?`<div class="row" style="margin-bottom:8px"><span class="lang">CATEGORY</span> <b>${esc(a.category)}</b>${a.priceSuggested?` <span class="pill">Suggested retail ${money(a.priceSuggested)} €</span>`:""}${a.costBasis?` <span class="orig">landed ≈ ${money(a.costBasis)} €</span>`:""}</div>`:""}
+    ${fr.title?`<div class="at"><span class="lang">FR</span>${esc(fr.title)}</div><div class="desc">${esc(fr.description||"")}</div>`:""}
+    ${en.title?`<div class="at"><span class="lang">EN</span>${esc(en.title)}</div><div class="desc">${esc(en.description||"")}</div>`:""}
+  </div>`;
+}
+
+function imagesBlock(im){
+  if(!im) return "";
+  const orig = (im.original||[]).slice(0,8).map(u=>`<img src="${esc(u)}" referrerpolicy="no-referrer"/>`).join("");
+  const re = (im.reskinned||[]).map(u=>`<img src="${esc(u)}" referrerpolicy="no-referrer"/>`).join("");
+  return `<div class="imgs"><div><div class="orig" style="font-size:11px">Original</div>${orig}</div>
+    ${re?`<div class="reskinned"><div class="orig" style="font-size:11px;color:var(--ok)">Reskinned</div>${re}</div>`:""}</div>`;
+}
+
+async function render(){
+  const { items } = await (await fetch("/api/favorites")).json();
+  const el = document.getElementById("list");
+  if(!items.length){ el.innerHTML = `<div class="empty">No favorites yet. ♥ products on the <a href="/" style="color:var(--accent)">search page</a>.</div>`; return; }
+  el.innerHTML = items.map(it=>{
+    const p = it.product;
+    return `<div class="fav">
+      <img class="thumb" src="${esc(p.images?.[0]||"")}" referrerpolicy="no-referrer"/>
+      <div>
+        <div class="row" style="margin-bottom:4px">
+          <span class="badge b-${it.status}">${it.status}</span>
+          <span class="orig">id ${esc(p.id)}</span>
+          <span class="grow"></span>
+          <button class="x" data-reskin="${esc(p.id)}">🎨 Reskin images</button>
+          <button class="x" data-rm="${esc(p.id)}">Remove</button>
+        </div>
+        <a class="titlelink" href="/?id=${esc(p.id)}" title="${esc(p.title)}"><b>${esc((p.title||"").slice(0,90))}</b></a>
+        <div class="orig" style="margin-top:4px">Original: <span class="price">${money(p.priceMin)}${p.priceMax!==p.priceMin?`–${money(p.priceMax)}`:""} ${esc(p.currency)}</span> · ${p.variants?.length||0} variants · ${p.totalStock||0} stock</div>
+        ${adaptedBlock(it.adapted)}
+        ${imagesBlock(it.images)}
+      </div>
+    </div>`;
+  }).join("");
+  el.querySelectorAll("[data-rm]").forEach(b=> b.onclick = async ()=>{
+    await fetch("/api/favorites/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.rm})});
+    render();
+  });
+  el.querySelectorAll("[data-reskin]").forEach(b=> b.onclick = async ()=>{
+    b.disabled = true; b.textContent = "🎨 Reskinning… (~1 min)";
+    const r = await fetch("/api/favorites/reskin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.reskin})});
+    const d = await r.json();
+    if(!r.ok){ alert(d.error||"Reskin failed"); b.disabled=false; b.textContent="🎨 Reskin images"; return; }
+    render();
+  });
+}
+render();
+</script>
+</body>
+</html>

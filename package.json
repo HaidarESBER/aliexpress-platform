@@ -1,0 +1,21 @@
+{
+  "name": "aliexpress-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone tool to fetch AliExpress Dropshipping (DS) products and all their info.",
+  "scripts": {
+    "start": "node --env-file=.env server.mjs",
+    "fetch": "node --env-file=.env cli.mjs",
+    "search": "node --env-file=.env cli.mjs search",
+    "reskin": "node --env-file=.env cli.mjs reskin",
+    "refresh": "node --env-file=.env cli.mjs refresh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "sharp": "^0.34.5"
+  }
+}

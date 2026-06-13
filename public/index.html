@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AliExpress Product Fetcher</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --txt:#e7e9ee; --muted:#9aa3b2; --accent:#e8a13a; --ok:#3ecf8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  header .grow { flex:1; }
+  .btn { background:var(--accent); color:#1a1206; border:0; border-radius:8px; padding:10px 16px; font-weight:600; cursor:pointer; }
+  .btn.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  main { max-width:1000px; margin:0 auto; padding:24px; }
+  .searchbar { display:flex; gap:10px; margin-bottom:8px; }
+  .searchbar input { flex:1; background:var(--card); border:1px solid var(--line); color:var(--txt); padding:12px 14px; border-radius:8px; font-size:15px; }
+  .opts { display:flex; gap:8px; color:var(--muted); font-size:13px; margin-bottom:20px; align-items:center; }
+  .opts select { background:var(--card); border:1px solid var(--line); color:var(--txt); border-radius:6px; padding:4px 8px; }
+  .msg { padding:12px 14px; border-radius:8px; margin:12px 0; }
+  .msg.err { background:#3a1d1d; color:#ffb4b4; border:1px solid #5a2a2a; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:18px; }
+  .title { font-size:20px; font-weight:700; margin:0 0 6px; }
+  .meta { display:flex; gap:18px; flex-wrap:wrap; color:var(--muted); font-size:14px; margin-bottom:6px; }
+  .price { color:var(--accent); font-weight:700; font-size:22px; }
+  .gallery { display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; }
+  .gallery img { width:110px; height:110px; object-fit:cover; border-radius:8px; border:1px solid var(--line); flex:0 0 auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; }
+  h3 { margin:0 0 12px; font-size:15px; }
+  .swatch { width:34px; height:34px; border-radius:6px; object-fit:cover; vertical-align:middle; margin-right:8px; border:1px solid var(--line); }
+  pre { background:#0b0d11; border:1px solid var(--line); border-radius:8px; padding:14px; overflow:auto; max-height:420px; font-size:12px; color:#cdd3df; }
+  a { color:var(--accent); }
+  .hint { color:var(--muted); font-size:13px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px; }
+  .chip { background:var(--card); border:1px solid var(--line); color:var(--txt); border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; }
+  .chip:hover { border-color:var(--accent); color:var(--accent); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; }
+  .pcard { position:relative; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; cursor:pointer; transition:border-color .15s, transform .15s; }
+  .favdot { position:absolute; top:8px; right:8px; z-index:2; width:32px; height:32px; border-radius:50%; border:0; background:rgba(0,0,0,.55); color:#fff; font-size:16px; cursor:pointer; line-height:1; }
+  .favdot:hover { background:rgba(0,0,0,.8); }
+  .favdot.on { background:var(--accent); color:#1a1206; }
+  .pcard:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .pcard .thumb { width:100%; aspect-ratio:1/1; object-fit:cover; background:#0b0d11; display:block; }
+  .pcard .body { padding:10px 12px; }
+  .pcard .ptitle { font-size:13px; line-height:1.35; height:3.5em; overflow:hidden; margin:0 0 8px; }
+  .pcard .pprice { color:var(--accent); font-weight:700; }
+  .pcard .psub { color:var(--muted); font-size:12px; margin-top:2px; }
+  .resulthead { display:flex; align-items:center; gap:12px; margin:4px 0 14px; color:var(--muted); }
+  #sort { background:var(--card); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:0 10px; font-size:14px; }
+  .shiprow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; color:var(--muted); font-size:14px; }
+  .shiprow select, .shiprow input { background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:6px; padding:8px 10px; font-size:14px; }
+  .shiprow select { max-width:340px; }
+  .shiprow input { width:70px; }
+  .landed { background:#10231a; border:1px solid #1f4533; border-radius:8px; padding:12px 14px; margin-top:12px; }
+  .landed b { color:var(--ok); font-size:18px; }
+  .badge { font-size:11px; padding:2px 7px; border-radius:999px; background:#23303f; color:#bcd; }
+  .picks { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:20px; }
+  .pick { border-width:2px; }
+  .pick .picklabel { font-size:12px; font-weight:700; padding:8px 12px 0; text-transform:uppercase; letter-spacing:.04em; }
+  .pick { display:grid; grid-template-columns:140px 1fr; align-items:stretch; }
+  .pick .picklabel { grid-column:1 / -1; }
+  .pick .thumb { aspect-ratio:1/1; height:140px; width:140px; }
+  .pick .body { display:flex; flex-direction:column; justify-content:center; }
+  .pick .ptitle { height:auto; max-height:4.2em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛒 AliExpress Product Fetcher</h1>
+  <span class="grow"></span>
+  <a class="btn ghost" id="favLink" href="/favorites">★ Favorites</a>
+  <button class="btn ghost" id="refreshBtn" title="Rotate the access token">↻ Refresh token</button>
+</header>
+
+<main>
+  <div class="searchbar">
+    <input id="input" placeholder="Paste an AliExpress product URL or ID (e.g. 1005011990706194)" autofocus />
+    <button class="btn" id="goBtn">Fetch</button>
+  </div>
+  <div class="opts">
+    Ship to
+    <select id="country"><option>FR</option><option>US</option><option>GB</option><option>DE</option><option>ES</option></select>
+    Currency
+    <select id="currency"><option>EUR</option><option>USD</option><option>GBP</option></select>
+    Language
+    <select id="language"><option>EN</option><option>FR</option></select>
+    <span class="grow"></span>
+    <button class="btn ghost" id="favBtn" disabled>♡ Favorite</button>
+    <button class="btn ghost" id="saveBtn" disabled>💾 Save JSON</button>
+  </div>
+
+  <div class="searchbar">
+    <input id="q" placeholder="Search relevant products by keyword (e.g. hookah, shisha bowl, hookah hose)…" />
+    <select id="sort" title="Sort results">
+      <option value="relevance">Relevance</option>
+      <option value="price_asc">Cheapest first</option>
+      <option value="price_desc">Most expensive</option>
+      <option value="orders_desc">Best selling</option>
+    </select>
+    <button class="btn" id="searchBtn">🔎 Find products</button>
+  </div>
+  <div class="chips" id="presets"></div>
+
+  <div id="out"></div>
+  <p class="hint">Tip: also usable from the terminal — <code>npm run fetch -- &lt;id&gt; --save</code></p>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const out = $("out");
+let lastInput = null;
+
+function money(p){ return p==null ? "?" : p.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(data){
+  const p = data.normalized;
+  window.__product = p;
+  lastInput = p.id;
+  $("saveBtn").disabled = false;
+  $("favBtn").disabled = false;
+  $("favBtn").textContent = "♡ Favorite";
+  const priceRange = p.priceMin==null ? "?" : (p.priceMax!==p.priceMin ? `${money(p.priceMin)}–${money(p.priceMax)}` : money(p.priceMin));
+  out.innerHTML = `
+    <div class="card">
+      <p class="title">${esc(p.title)}</p>
+      <div class="meta">
+        <span class="price">${priceRange} ${esc(p.currency)}</span>
+        <span>Stock: ${p.totalStock}</span>
+        ${p.rating?`<span>★ ${esc(p.rating)}</span>`:""}
+        ${p.orders?`<span>${esc(p.orders)} sold</span>`:""}
+        <span>Store: ${esc(p.store.name||"?")}</span>
+        <span><a href="${esc(p.detailUrl)}" target="_blank" rel="noopener">Open on AliExpress ↗</a></span>
+      </div>
+      ${p.images.length?`<div class="gallery">${p.images.map(u=>`<img src="${esc(u)}" referrerpolicy="no-referrer" />`).join("")}</div>`:""}
+    </div>
+
+    <div class="card">
+      <h3>Variants (${p.variants.length})</h3>
+      <table><thead><tr><th>Options</th><th>SKU id</th><th>Price</th><th>List</th><th>Stock</th></tr></thead><tbody>
+      ${p.variants.map(v=>`<tr>
+        <td>${v.options.map(o=>`${o.image?`<img class="swatch" referrerpolicy="no-referrer" src="${esc(o.image)}"/>`:""}${esc(o.name)}: <b>${esc(o.value)}</b>`).join(" · ")||"—"}</td>
+        <td>${esc(v.skuId)}</td>
+        <td>${money(v.price)} ${esc(p.currency)}</td>
+        <td>${money(v.listPrice)}</td>
+        <td>${v.stock}</td>
+      </tr>`).join("")}
+      </tbody></table>
+    </div>
+
+    <div class="card">
+      <h3>Live shipping &amp; landed cost</h3>
+      <div class="shiprow">
+        <span>Variant</span>
+        <select id="shipSku">
+          ${p.variants.map(v=>`<option value="${esc(v.skuId)}" data-price="${v.price??''}">${esc(v.options.map(o=>o.value).join(" / ")||v.skuId)} — ${money(v.price)} ${esc(p.currency)} (stock ${v.stock})</option>`).join("")}
+        </select>
+        <span>Qty</span><input id="shipQty" type="number" min="1" value="1" />
+        <span>to <b style="color:var(--txt)" id="shipDest">${esc(data.country||"")}</b></span>
+        <button class="btn" id="shipBtn">📦 Simulate shipping</button>
+      </div>
+      <div id="shipOut"></div>
+    </div>
+
+    ${p.properties.length?`<div class="card"><h3>Specifications</h3><table><tbody>
+      ${p.properties.map(pr=>`<tr><th style="width:38%">${esc(pr.name)}</th><td>${esc(pr.value)}</td></tr>`).join("")}
+    </tbody></table></div>`:""}
+
+    <div class="card">
+      <h3>Raw API response</h3>
+      <pre>${esc(JSON.stringify(data.raw, null, 2))}</pre>
+    </div>`;
+
+  $("shipDest").textContent = $("country").value;
+  $("shipBtn").onclick = simulateShipping;
+  simulateShipping(); // auto-run for the default (first) variant
+}
+
+async function simulateShipping(){
+  const p = window.__product;
+  if(!p) return;
+  const skuId = $("shipSku").value;
+  const qty = Math.max(1, Number($("shipQty").value) || 1);
+  const country = $("country").value;
+  $("shipDest").textContent = country;
+  const unit = Number($("shipSku").selectedOptions[0]?.dataset.price) || p.priceMin || 0;
+  const shipOut = $("shipOut");
+  shipOut.innerHTML = `<div class="msg">Getting live rates to ${esc(country)}…</div>`;
+  const qs = new URLSearchParams({ productId:p.id, skuId, qty, country, currency:$("currency").value, language:$("language").value });
+  try {
+    const r = await fetch(`/api/freight?${qs}`);
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error||"Shipping lookup failed");
+    if(!d.options.length){ shipOut.innerHTML = `<div class="msg">No shipping options to ${esc(country)} for this variant.</div>`; return; }
+    const cheapest = d.options[0];
+    const itemCost = unit * qty;
+    const landed = itemCost + cheapest.cost;
+    shipOut.innerHTML = `
+      <table><thead><tr><th>Carrier</th><th>Cost</th><th>Delivery</th><th>ETA</th><th>From</th><th></th></tr></thead><tbody>
+      ${d.options.map(o=>`<tr>
+        <td>${esc(o.company||o.code)}</td>
+        <td>${o.free?'<span class="badge">FREE</span>':`${money(o.cost)} ${esc(o.currency)}`}</td>
+        <td>${o.minDays!=null?`${o.minDays}–${o.maxDays} days`:"—"}</td>
+        <td>${esc(o.eta||"—")}</td>
+        <td>${esc(o.shipFrom||"—")}</td>
+        <td>${o.tracking?'<span class="badge">tracked</span>':""}</td>
+      </tr>`).join("")}
+      </tbody></table>
+      <div class="landed">
+        Landed cost for <b style="color:var(--txt)">${qty}×</b> = item ${money(itemCost)} + cheapest shipping ${money(cheapest.cost)} ${esc(d.currency)}
+        → <b>${money(landed)} ${esc(d.currency)}</b>
+        &nbsp;·&nbsp; <b style="color:var(--txt)">${money(landed/qty)} ${esc(d.currency)}</b> per unit landed
+      </div>`;
+  } catch(e){
+    shipOut.innerHTML = `<div class="msg err">${esc(e.message)}</div>`;
+  }
+}
+
+async function fetchProduct(){
+  const input = $("input").value.trim();
+  if(!input) return;
+  out.innerHTML = `<div class="msg">Fetching…</div>`;
+  $("saveBtn").disabled = true;
+  const qs = new URLSearchParams({ input, country:$("country").value, currency:$("currency").value, language:$("language").value });
+  try {
+    const r = await fetch(`/api/product?${qs}`);
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.error||"Request failed");
+    render(data);
+  } catch(e){
+    out.innerHTML = `<div class="msg err">${esc(e.message)}</div>`;
+  }
+}
+
+// --- keyword search: go fetch relevant products ---
+const PRESETS = ["hookah","shisha","chicha","narguilé","hookah bowl","hookah hose","hookah charcoal","coconut charcoal","glass hookah","hookah mouthpiece"];
+
+function pickCard(label, accent, p, currency){
+  if(!p) return "";
+  return `<div class="pick pcard" data-id="${esc(p.id)}">
+    <button class="favdot" data-fav="${esc(p.id)}" title="Add to favorites">♡</button>
+    <div class="picklabel" style="color:${accent}">${label}</div>
+    <img class="thumb" src="${esc(p.image)}" referrerpolicy="no-referrer" />
+    <div class="body">
+      <p class="ptitle">${esc(p.title)}</p>
+      <div class="pprice">${money(p.price)} ${esc(p.currency||currency)}</div>
+      <div class="psub">${p.orders?`${esc(p.orders)} sold`:""}${p.score?` · ★ ${esc(p.score)}`:""}</div>
+    </div></div>`;
+}
+
+function renderResults(q, data){
+  $("saveBtn").disabled = true;
+  if(!data.products.length){ out.innerHTML = `<div class="msg">No products found for "${esc(q)}".</div>`; return; }
+  const samePick = data.cheapest && data.mostRelevant && data.cheapest.id === data.mostRelevant.id;
+  out.innerHTML = `
+    <div class="resulthead">
+      Scanned <b style="color:var(--txt)">${data.fetched}</b> of ${data.total ?? "?"} listings for "${esc(q)}"
+      (${data.pagesFetched} pages) — click any product for full details &amp; live shipping.
+    </div>
+    <div class="picks">
+      ${pickCard("🏆 Most relevant", "#7db4ff", data.mostRelevant, data.currency)}
+      ${samePick ? "" : pickCard("💰 Absolute cheapest", "var(--ok)", data.cheapest, data.currency)}
+    </div>
+    <div class="grid">
+      ${data.products.map(p=>`
+        <div class="pcard" data-id="${esc(p.id)}">
+          <button class="favdot" data-fav="${esc(p.id)}" title="Add to favorites">♡</button>
+          <img class="thumb" src="${esc(p.image)}" referrerpolicy="no-referrer" />
+          <div class="body">
+            <p class="ptitle">${esc(p.title)}</p>
+            <div class="pprice">${money(p.price)} ${esc(p.currency)}</div>
+            <div class="psub">${p.orders?`${esc(p.orders)} sold`:""}${p.score?` · ★ ${esc(p.score)}`:""}</div>
+          </div>
+        </div>`).join("")}
+    </div>`;
+  out.querySelectorAll(".pcard").forEach(card => {
+    card.onclick = () => { $("input").value = card.dataset.id; window.scrollTo({top:0,behavior:"smooth"}); fetchProduct(); };
+  });
+  wireFavDots();
+}
+
+function wireFavDots(){
+  document.querySelectorAll(".favdot").forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      if(btn.classList.contains("on")) return;
+      btn.disabled = true;
+      const r = await fetch("/api/favorites",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input:btn.dataset.fav})});
+      if(r.ok){ btn.textContent="♥"; btn.classList.add("on"); updateFavCount(); } else btn.disabled=false;
+    };
+  });
+}
+
+async function updateFavCount(){
+  try { const d = await (await fetch("/api/favorites")).json(); $("favLink").textContent = `★ Favorites (${d.items.length})`; } catch {}
+}
+
+async function search(){
+  const q = $("q").value.trim();
+  if(!q) return;
+  out.innerHTML = `<div class="msg">Searching “${esc(q)}”…</div>`;
+  const qs = new URLSearchParams({ q, sort:$("sort").value, country:$("country").value, currency:$("currency").value, language:$("language").value });
+  try {
+    const r = await fetch(`/api/search?${qs}`);
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.error||"Search failed");
+    renderResults(q, data);
+  } catch(e){
+    out.innerHTML = `<div class="msg err">${esc(e.message)}</div>`;
+  }
+}
+
+$("presets").innerHTML = PRESETS.map(k=>`<span class="chip">${esc(k)}</span>`).join("");
+$("presets").querySelectorAll(".chip").forEach(c => c.onclick = () => { $("q").value = c.textContent; search(); });
+$("searchBtn").onclick = search;
+$("sort").onchange = () => { if($("q").value.trim()) search(); };
+$("q").addEventListener("keydown", e => { if(e.key==="Enter") search(); });
+
+$("goBtn").onclick = fetchProduct;
+$("input").addEventListener("keydown", e => { if(e.key==="Enter") fetchProduct(); });
+
+$("saveBtn").onclick = async () => {
+  if(!lastInput) return;
+  const r = await fetch("/api/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input:lastInput})});
+  const d = await r.json();
+  alert(r.ok ? `Saved:\n${d.saved}` : `Error: ${d.error}`);
+};
+
+$("favBtn").onclick = async () => {
+  if(!lastInput) return;
+  $("favBtn").disabled = true;
+  const r = await fetch("/api/favorites",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({input:lastInput})});
+  const d = await r.json();
+  if(r.ok){ $("favBtn").textContent = d.already ? "♥ Already favorited" : "♥ Favorited"; updateFavCount(); }
+  else { alert(d.error||"Error"); $("favBtn").disabled = false; }
+};
+
+updateFavCount();
+
+// Deep-link: /?id=<productId> opens that product directly (used by the favorites page).
+const _pid = new URLSearchParams(location.search).get("id");
+if(_pid){ $("input").value = _pid; fetchProduct(); }
+
+$("refreshBtn").onclick = async () => {
+  $("refreshBtn").disabled = true;
+  try {
+    const r = await fetch("/api/refresh",{method:"POST"});
+    const d = await r.json();
+    alert(r.ok ? `Token refreshed.\nAccess valid until ${new Date(d.accessExpiresAt).toLocaleString()}` : `Error: ${d.error}`);
+  } finally { $("refreshBtn").disabled = false; }
+};
+</script>
+</body>
+</html>
